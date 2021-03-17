@@ -8,7 +8,10 @@
 #
 # * path: fully qualified filepath for the download the file or use archive_path and only supply filename. (namevar).
 # * ensure: ensure the file is present/absent.
-# * url: artifactory download URL.
+# * url: artifactory download url filepath. NOTE: replaces server, port, url_path parameters.
+# * server: artifactory server name (deprecated).
+# * port: artifactory server port (deprecated).
+# * url_path: artifactory file path http:://{server}:{port}/artifactory/{url_path} (deprecated).
 # * owner: file owner (see archive params for defaults).
 # * group: file group (see archive params for defaults).
 # * mode: file mode (see archive params for defaults).
@@ -39,22 +42,24 @@
 #   cleanup      => true,
 # }
 #
-define archive::artifactory (
-  Stdlib::HTTPUrl                $url,
-  String                         $path         = $name,
-  Enum['present', 'absent']      $ensure       = present,
-  Optional[String]               $owner        = undef,
-  Optional[String]               $group        = undef,
-  Optional[String]               $mode         = undef,
-  Optional[Boolean]              $extract      = undef,
-  Optional[String]               $extract_path = undef,
-  Optional[String]               $creates      = undef,
-  Optional[Boolean]              $cleanup      = undef,
-  Optional[String]               $username     = undef,
-  Optional[String]               $password     = undef,
-  Optional[Stdlib::Absolutepath] $archive_path = undef,
+define voxpupuli_archive::artifactory (
+  $path         = $name,
+  $ensure       = present,
+  $url          = undef,
+  $server       = undef,
+  $port         = undef,
+  $url_path     = undef,
+  $owner        = undef,
+  $group        = undef,
+  $mode         = undef,
+  $archive_path = undef,
+  $extract      = undef,
+  $extract_path = undef,
+  $creates      = undef,
+  $cleanup      = undef,
 ) {
-  include archive::params
+
+  include ::voxpupuli_archive::params
 
   if $archive_path {
     $file_path = "${archive_path}/${name}"
@@ -62,23 +67,18 @@ define archive::artifactory (
     $file_path = $path
   }
 
-  assert_type(Stdlib::Absolutepath, $file_path) |$expected, $actual| {
-    fail("archive::artifactory[${name}]: \$name or \$archive_path must be '${expected}', not '${actual}'")
-  }
+  validate_absolute_path($file_path)
 
-  $maven2_data = archive::parse_artifactory_url($url)
-  if $maven2_data and $maven2_data['folder_iteg_rev'] == 'SNAPSHOT' {
-    # URL represents a SNAPSHOT version. eg 'http://artifactory.example.com/artifactory/repo/com/example/artifact/0.0.1-SNAPSHOT/artifact-0.0.1-SNAPSHOT.zip'
-    # Only Artifactory Pro lets you download this directly but the corresponding fileinfo endpoint (where the sha1 checksum is published) doesn't exist.
-    # This means we can't use the artifactory_sha1 function
-
-    $latest_url_data = archive::artifactory_latest_url($url, $maven2_data)
-
-    $file_url = $latest_url_data['url']
-    $sha1     = $latest_url_data['sha1']
-  } else {
+  if $url {
     $file_url = $url
-    $sha1     = archive::artifactory_checksum($url,'sha1')
+    $sha1_url = regsubst($url, '/artifactory/', '/artifactory/api/storage/')
+  } elsif $server and $port and $url_path {
+    warning('voxpupuli_archive::artifactory attribute: server, port, url_path are deprecated')
+    $art_url = "http://${server}:${port}/artifactory"
+    $file_url = "${art_url}/${url_path}"
+    $sha1_url = "${art_url}/api/storage/${url_path}"
+  } else {
+    fail('Please provide fully qualified url path for artifactory file.')
   }
 
   archive { $file_path:
@@ -86,18 +86,16 @@ define archive::artifactory (
     path          => $file_path,
     extract       => $extract,
     extract_path  => $extract_path,
-    username      => $username,
-    password      => $password,
     source        => $file_url,
-    checksum      => $sha1,
+    checksum      => artifactory_sha1($sha1_url),
     checksum_type => 'sha1',
     creates       => $creates,
     cleanup       => $cleanup,
   }
 
-  $file_owner = pick($owner, $archive::params::owner)
-  $file_group = pick($group, $archive::params::group)
-  $file_mode  = pick($mode, $archive::params::mode)
+  $file_owner = pick($owner, $voxpupuli_archive::params::owner)
+  $file_group = pick($group, $voxpupuli_archive::params::group)
+  $file_mode  = pick($mode, $voxpupuli_archive::params::mode)
 
   file { $file_path:
     owner   => $file_owner,

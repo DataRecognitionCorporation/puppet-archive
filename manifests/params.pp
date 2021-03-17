@@ -1,9 +1,12 @@
-# @summary OS specific `archive` settings such as default user and file mode.
-# @api private
-class archive::params {
-  case $facts['os']['family'] {
+# Class: archive::params
+# ======================
+#
+# archive settings such as default user and file mode.
+#
+class voxpupuli_archive::params {
+  case $::osfamily {
     'Windows': {
-      $path               = $facts['archive_windir']
+      $path               = $::archive_windir
       $owner              = 'S-1-5-32-544' # Adminstrators
       $group              = 'S-1-5-18'     # SYSTEM
       $mode               = '0640'

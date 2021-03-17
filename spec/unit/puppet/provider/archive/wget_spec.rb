@@ -1,5 +1,3 @@
-require 'spec_helper'
-
 wget_provider = Puppet::Type.type(:archive).provider(:wget)
 
 RSpec.describe wget_provider do
@@ -23,7 +21,6 @@ RSpec.describe wget_provider do
 
     before do
       allow(FileUtils).to receive(:mv)
-      allow(execution).to receive(:execute)
     end
 
     context 'no extra properties specified' do
@@ -35,8 +32,8 @@ RSpec.describe wget_provider do
       end
 
       it 'calls wget with input, output and --max-redirects=5' do
+        expect(execution).to receive(:execute).with(default_options.join(' '))
         provider.download(name)
-        expect(execution).to have_received(:execute).with(default_options.join(' '))
       end
     end
 
@@ -45,13 +42,13 @@ RSpec.describe wget_provider do
         {
           name: name,
           source: 'http://home.lan/example.zip',
-          username: 'foo'
+          username: 'foo',
         }
       end
 
       it 'calls wget with default options and username' do
+        expect(execution).to receive(:execute).with([default_options, '--user=foo'].join(' '))
         provider.download(name)
-        expect(execution).to have_received(:execute).with([default_options, '--user=foo'].join(' '))
       end
     end
 
@@ -60,13 +57,13 @@ RSpec.describe wget_provider do
         {
           name: name,
           source: 'http://home.lan/example.zip',
-          password: 'foo'
+          password: 'foo',
         }
       end
 
       it 'calls wget with default options and password' do
+        expect(execution).to receive(:execute).with([default_options, '--password=foo'].join(' '))
         provider.download(name)
-        expect(execution).to have_received(:execute).with([default_options, '--password=foo'].join(' '))
       end
     end
 
@@ -75,13 +72,13 @@ RSpec.describe wget_provider do
         {
           name: name,
           source: 'http://home.lan/example.zip',
-          cookie: 'foo'
+          cookie: 'foo',
         }
       end
 
       it 'calls wget with default options and header containing cookie' do
+        expect(execution).to receive(:execute).with([default_options, '--header="Cookie: foo"'].join(' '))
         provider.download(name)
-        expect(execution).to have_received(:execute).with([default_options, '--header="Cookie: foo"'].join(' '))
       end
     end
 
@@ -90,66 +87,13 @@ RSpec.describe wget_provider do
         {
           name: name,
           source: 'http://home.lan/example.zip',
-          proxy_server: 'https://home.lan:8080'
+          proxy_server: 'https://home.lan:8080',
         }
       end
 
       it 'calls wget with default options and header containing cookie' do
+        expect(execution).to receive(:execute).with([default_options, '--https_proxy=https://home.lan:8080'].join(' '))
         provider.download(name)
-        expect(execution).to have_received(:execute).with([default_options, '-e use_proxy=yes', '-e https_proxy=https://home.lan:8080'].join(' '))
-      end
-    end
-
-    context 'allow_insecure true' do
-      let(:resource_properties) do
-        {
-          name: name,
-          source: 'http://home.lan/example.zip',
-          allow_insecure: true
-        }
-      end
-
-      it 'calls wget with default options and --no-check-certificate' do
-        provider.download(name)
-        expect(execution).to have_received(:execute).with([default_options, '--no-check-certificate'].join(' '))
-      end
-    end
-
-    describe '#checksum' do
-      subject { provider.checksum }
-
-      let(:url) { nil }
-      let(:resource_properties) do
-        {
-          name: name,
-          source: 'http://home.lan/example.zip'
-        }
-      end
-
-      before do
-        resource[:checksum_url] = url if url
-      end
-
-      context 'with a url' do
-        let(:wget_params) do
-          [
-            'wget',
-            '-qO-',
-            'http://example.com/checksum',
-            '--max-redirect=5'
-          ]
-        end
-
-        let(:url) { 'http://example.com/checksum' }
-
-        context 'responds with hash' do
-          let(:remote_hash) { 'a0c38e1aeb175201b0dacd65e2f37e187657050a' }
-
-          it 'parses checksum value' do
-            allow(Puppet::Util::Execution).to receive(:execute).with(wget_params.join(' ')).and_return("a0c38e1aeb175201b0dacd65e2f37e187657050a README.md\n")
-            expect(provider.checksum).to eq('a0c38e1aeb175201b0dacd65e2f37e187657050a')
-          end
-        end
       end
     end
   end

@@ -18,35 +18,33 @@
 #   extract    => false,
 # }
 #
-define archive::nexus (
-  String            $url,
-  String            $gav,
-  String            $repository,
-  Enum['present', 'absent'] $ensure  = present,
-  Enum['none', 'md5', 'sha1', 'sha2','sha256', 'sha384', 'sha512'] $checksum_type   = 'md5',
-  Boolean           $checksum_verify = true,
-  String            $packaging       = 'jar',
-  Boolean           $use_nexus3_urls = false,
-  Optional[String]  $classifier      = undef,
-  Optional[String]  $extension       = undef,
-  Optional[String]  $username        = undef,
-  Optional[String]  $password        = undef,
-  Optional[String]  $user            = undef,
-  Optional[String]  $owner           = undef,
-  Optional[String]  $group           = undef,
-  Optional[String]  $mode            = undef,
-  Optional[Boolean] $extract         = undef,
-  Optional[String]  $extract_path    = undef,
-  Optional[String]  $extract_flags   = undef,
-  Optional[String]  $extract_command = undef,
-  Optional[String]  $creates         = undef,
-  Optional[Boolean] $cleanup         = undef,
-  Optional[String]  $proxy_server    = undef,
-  Optional[String]  $proxy_type      = undef,
-  Optional[Boolean] $allow_insecure  = undef,
-  Optional[Stdlib::Absolutepath] $temp_dir = undef,
+define voxpupuli_archive::nexus (
+  $url,
+  $gav,
+  $repository,
+  $ensure          = present,
+  $checksum_type   = 'md5',
+  $checksum_verify = true,
+  $packaging       = 'jar',
+  $classifier      = undef,
+  $extension       = undef,
+  $username        = undef,
+  $password        = undef,
+  $user            = undef,
+  $owner           = undef,
+  $group           = undef,
+  $mode            = undef,
+  $extract         = undef,
+  $extract_path    = undef,
+  $extract_flags   = undef,
+  $extract_command = undef,
+  $creates         = undef,
+  $cleanup         = undef,
+  $proxy_server    = undef,
+  $proxy_type      = undef,
 ) {
-  include archive::params
+
+  include ::voxpupuli_archive::params
 
   $artifact_info = split($gav, ':')
 
@@ -55,6 +53,7 @@ define archive::nexus (
   $version = $artifact_info[2]
 
   $query_params = {
+
     'g' => $group_id,
     'a' => $artifact_id,
     'v' => $version,
@@ -62,33 +61,12 @@ define archive::nexus (
     'p' => $packaging,
     'c' => $classifier,
     'e' => $extension,
-  }.filter |$keys, $values| { $values != undef }
 
-  if $use_nexus3_urls {
-    if $classifier {
-      $c = "-${classifier}"
-    } else {
-      $c = ''
-    }
-
-    $artifact_url = sprintf(
-      '%s/repository/%s/%s/%s/%s/%s-%s%s.%s',
-      $url,
-      $repository,
-      regsubst($group_id, '\.', '/', 'G'),
-      $artifact_id,
-      $version,
-      $artifact_id,
-      $version,
-      $c,
-      $packaging
-    )
-
-    $checksum_url = sprintf('%s.%s', $artifact_url, $checksum_type)
-  } else {
-    $artifact_url = archive::assemble_nexus_url($url, $query_params)
-    $checksum_url = regsubst($artifact_url, "p=${packaging}", "p=${packaging}.${checksum_type}")
   }
+
+  $artifact_url = assemble_nexus_url($url, delete_undef_values($query_params))
+  $checksum_url = regsubst($artifact_url, "p=${packaging}", "p=${packaging}.${checksum_type}")
+
   archive { $name:
     ensure          => $ensure,
     source          => $artifact_url,
@@ -107,13 +85,11 @@ define archive::nexus (
     cleanup         => $cleanup,
     proxy_server    => $proxy_server,
     proxy_type      => $proxy_type,
-    allow_insecure  => $allow_insecure,
-    temp_dir        => $temp_dir,
   }
 
-  $file_owner = pick($owner, $archive::params::owner)
-  $file_group = pick($group, $archive::params::group)
-  $file_mode  = pick($mode, $archive::params::mode)
+  $file_owner = pick($owner, $voxpupuli_archive::params::owner)
+  $file_group = pick($group, $voxpupuli_archive::params::group)
+  $file_mode  = pick($mode, $voxpupuli_archive::params::mode)
 
   file { $name:
     owner   => $file_owner,
@@ -121,4 +97,5 @@ define archive::nexus (
     mode    => $file_mode,
     require => Archive[$name],
   }
+
 }
