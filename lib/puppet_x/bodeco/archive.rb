@@ -61,6 +61,8 @@ module PuppetX
       def win_7zip
         if ENV['path'].include?('7-Zip')
           '7z.exe'
+        elsif File.file?('C:\ProgramData\Chocolatey\bin\7z')
+          'C:\ProgramData\Chocolatey\bin\7z.exe'
         elsif File.directory?('C:\\Program Files\\7-Zip')
           'C:\\Program Files\\7-Zip\\7z.exe'
         elsif File.directory?('C:\\Program Files (x86)\\7-zip')
